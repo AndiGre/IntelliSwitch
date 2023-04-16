@@ -35,7 +35,6 @@ void setup() {
   Serial.println();
   Serial.println();
   Serial.println();
-  configTime(MY_TZ, MY_NTP_SERVER); // --> Here is the IMPORTANT ONE LINER needed in your sketch!
   for (uint8_t t = 4; t > 0; t--) {
     Serial.printf("[SETUP] WAIT %d...\n", t);
     Serial.flush();
@@ -43,7 +42,9 @@ void setup() {
   }
   WiFi.mode(WIFI_STA);
   WiFiMulti.addAP(WLANNAME, WLANPASSWORD);
-  delay(5000);  
+  delay(5000);
+  Serial.println(WiFi.getMode());  
+  configTime(MY_TZ, MY_NTP_SERVER); // --> Here is the IMPORTANT ONE LINER needed in your sketch!
 }
 
 
@@ -56,12 +57,15 @@ void loop() {
 
   // check if time is valid
   if (esptime.tm_year < 2001) {
-    if (esptime.tm_mday == sunSet.tm_mday) {
-      getSunData(&sunSet.tm_hour,&sunSet.tm_min);
-    }
+    Serial.print(esptime.tm_hour);
+    Serial.print(":");
+    Serial.println(esptime.tm_min);
+ //   if (esptime.tm_mday == sunSet.tm_mday) {
+ //     getSunData(&sunSet.tm_hour,&sunSet.tm_min);
+ //   }
   }
 
-
+/*
   // wait for WiFi connection
   wl_status_t wlstate;
   wlstate = WiFiMulti.run();
@@ -83,8 +87,9 @@ void loop() {
     counter++;
 
   //Serial.printf("state: ; %d\n",wlstate);
-  delay(1000);
   }
+  */
+  delay(1000);
 }
 
 /*******************************************************************/
