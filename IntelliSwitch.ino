@@ -2,27 +2,27 @@
 IntelliSwitch
 */
 
-#include <Arduino.h>
-#include <ArduinoJson.h>
+//#include <Arduino.h>
+//#include <ArduinoJson.h>
 #include "WlanData.h"
 
 #include <ESP8266WiFi.h>
-#include <ESP8266WiFiMulti.h>
-#include <ESP8266HTTPClient.h>
-#include <WiFiClient.h>
+//#include <ESP8266WiFiMulti.h>
+//#include <ESP8266HTTPClient.h>
+//#include <WiFiClient.h>
 
-#include <WiFiUdp.h>
+//#include <WiFiUdp.h>
 #include <time.h>                   // time() ctime()
 
 #define MY_NTP_SERVER "at.pool.ntp.org"           
 #define MY_TZ "CET-1CEST,M3.5.0/02,M10.5.0/03"   
 
-ESP8266WiFiMulti WiFiMulti;
+//ESP8266WiFiMulti WiFiMulti;
 
 
-void getTime(tm* p_tm);
+void getTime(tm* p_tm, bool* p_minuteHasChanged);
 void getAvState(void);
-void getSunData(int* p_hour, int* p_min);
+void getSunsetData(int* p_hour, int* p_min);
 void convertStringToTime(const char* string, int* h, int* min);
 bool isAfterSunset (tm* tm);                
 
@@ -32,40 +32,49 @@ bool isAfterSunset (tm* tm);
 void setup() {
   Serial.begin(2000000);
   // Serial.setDebugOutput(true);
-  Serial.println();
-  Serial.println();
+
+  configTime(MY_TZ, MY_NTP_SERVER); // --> Here is the IMPORTANT ONE LINER needed in your sketch!
+  
   Serial.println();
   for (uint8_t t = 4; t > 0; t--) {
     Serial.printf("[SETUP] WAIT %d...\n", t);
     Serial.flush();
     delay(1000);
   }
+
+  WiFi.persistent(false);
   WiFi.mode(WIFI_STA);
-  WiFiMulti.addAP(WLANNAME, WLANPASSWORD);
-  delay(5000);
-  Serial.println(WiFi.getMode());  
-  configTime(MY_TZ, MY_NTP_SERVER); // --> Here is the IMPORTANT ONE LINER needed in your sketch!
+  WiFi.begin(WLANNAME, WLANPASSWORD);
+  Serial.print("connecting.");
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print ( "." );
+  }
+  Serial.println("\nWiFi connected");
+  delay (5000);
 }
 
 
 /*******************************************************************/
 /*******************************************************************/
 void loop() {
-  tm esptime, sunSet, mytime;
-  static uint64_t counter = 0;
-  getTime(&esptime);
+  tm esptime, sunSet;
+  bool minuteHasChanged = false;
 
-  // check if time is valid
-  if (esptime.tm_year < 2001) {
+  //static uint64_t counter = 0;
+  getTime(&esptime, &minuteHasChanged);
+  if (minuteHasChanged){
     Serial.print(esptime.tm_hour);
     Serial.print(":");
     Serial.println(esptime.tm_min);
- //   if (esptime.tm_mday == sunSet.tm_mday) {
+  }
+  
+
+/* //   if (esptime.tm_mday == sunSet.tm_mday) {
  //     getSunData(&sunSet.tm_hour,&sunSet.tm_min);
  //   }
   }
 
-/*
   // wait for WiFi connection
   wl_status_t wlstate;
   wlstate = WiFiMulti.run();
@@ -89,9 +98,49 @@ void loop() {
   //Serial.printf("state: ; %d\n",wlstate);
   }
   */
-  delay(1000);
 }
 
+
+/*******************************************************************/
+/*******************************************************************/
+void getTime(tm* p_tm, bool* p_minuteHasChanged) {
+time_t now;                         // this is the epoch
+static unsigned char oldminute = 100;
+
+  *p_minuteHasChanged = false;
+  time(&now);                       // read the current time
+  localtime_r(&now, p_tm);           // update the structure tm with the current time
+  if (p_tm->tm_year > (2020-1900)) {
+    if (oldminute != p_tm->tm_min) {
+      oldminute = p_tm->tm_min;
+      *p_minuteHasChanged = true;
+    }
+  }
+
+/*
+  Serial.print(p_tm->tm_mday);         // day of month
+  Serial.print(".");
+  Serial.print(p_tm->tm_mon + 1);      // January = 0 (!)
+  Serial.print(".");
+  Serial.print(p_tm->tm_year + 1900);  // years since 1900
+  Serial.print(" ");
+  Serial.print(p_tm->tm_hour);         // hours since midnight  0-23
+  Serial.print(":");
+  Serial.print(p_tm->tm_min);          // minutes after the hour  0-59
+  Serial.print(":");
+  Serial.print(p_tm->tm_sec);          // seconds after the minute  0-61*
+  Serial.print(" wday");
+  Serial.print(p_tm->tm_wday);         // days since Sunday 0-6
+  if (p_tm->tm_isdst == 1)             // Daylight Saving Time flag
+    Serial.print(" DST");
+  else
+    Serial.print(" standard");
+  Serial.println();
+  */
+}
+
+
+#ifdef doNotCompile
 /*******************************************************************/
 /*******************************************************************/
 bool isAfterSunset(tm* tm) {
@@ -115,36 +164,6 @@ bool isAfterSunset(tm* tm) {
     retval = true;
   }
   return (false);
-}
-
-
-/*******************************************************************/
-/*******************************************************************/
-void getTime(tm* p_tm) {
-time_t now;                         // this is the epoch
-
-  time(&now);                       // read the current time
-  localtime_r(&now, p_tm);           // update the structure tm with the current time
-/*
-  Serial.print(p_tm->tm_mday);         // day of month
-  Serial.print(".");
-  Serial.print(p_tm->tm_mon + 1);      // January = 0 (!)
-  Serial.print(".");
-  Serial.print(p_tm->tm_year + 1900);  // years since 1900
-  Serial.print(" ");
-  Serial.print(p_tm->tm_hour);         // hours since midnight  0-23
-  Serial.print(":");
-  Serial.print(p_tm->tm_min);          // minutes after the hour  0-59
-  Serial.print(":");
-  Serial.print(p_tm->tm_sec);          // seconds after the minute  0-61*
-  Serial.print(" wday");
-  Serial.print(p_tm->tm_wday);         // days since Sunday 0-6
-  if (p_tm->tm_isdst == 1)             // Daylight Saving Time flag
-    Serial.print(" DST");
-  else
-    Serial.print(" standard");
-  Serial.println();
-  */
 }
 
 /*******************************************************************/
@@ -188,7 +207,7 @@ void getAvState(void) {
 
 /*******************************************************************/
 /*******************************************************************/
-void getSunData(int* p_hour, int* p_min) {
+void getSunsetData(int* p_hour, int* p_min) {
   WiFiClient client;
   HTTPClient http;
   DeserializationError jsonError;
@@ -249,4 +268,14 @@ void convertStringToTime(const char* string, int* p_h, int* p_min) {
     *p_min = (string[3]-0x30)*10+(string[4]-0x30);
   }
   Serial.printf("%d:%d\n",*p_h,*p_min);  
+}
+#endif
+
+
+/****************************************************************/
+/****************************************************************/
+uint32_t sntp_update_delay_MS_rfc_not_less_than_15000 ()
+{
+  return 12 * 60 * 60 * 1000UL; // 12 hours
+  Serial.println("\nTime update set to 24h");
 }
